@@ -45,10 +45,27 @@ export function sortWorkItems(items, sort) {
   return copy
 }
 
+export function extractVideoId(url) {
+  if (!url) return null
+  const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
+  const match = url.match(regExp)
+  return (match && match[2].length === 11) ? match[2] : null
+}
+
 export function thumbUrl(item) {
-  return item.thumbnail || item.imageUrl || ''
+  // If a manual thumbnail is provided, use it
+  if (item.thumbnail || item.imageUrl) return item.thumbnail || item.imageUrl
+  
+  // Otherwise, if it's a YouTube link, fetch the highest quality (maxresdefault)
+  const vid = extractVideoId(item.link)
+  if (vid) {
+    // Using i.ytimg.com/vi/[id]/maxresdefault.jpg for highest quality
+    return `https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`
+  }
+  
+  return ''
 }
 
 export function videoThumbUrl(item) {
-  return thumbUrl(item) || item.link || ''
+  return thumbUrl(item)
 }

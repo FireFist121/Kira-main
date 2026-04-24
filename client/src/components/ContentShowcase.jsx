@@ -281,7 +281,7 @@ export default function ContentShowcase({ id, title = 'Explore Content', subtitl
                           title={item.title}
                           image={img}
                           showTitleOverlay={Boolean(item.title)}
-                          onClick={img ? () => setModalImage(img) : undefined}
+                          onClick={() => goToLink(item.link)}
                         />
                       )
                     })}
