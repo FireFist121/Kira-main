@@ -13,6 +13,7 @@ async function getSettings() {
       bio1: "",
       bio2: "",
       skills: [],
+      marqueeText: "",
       available: true
     }});
   }
@@ -51,13 +52,14 @@ router.put('/stats', requireAdmin, async (req, res) => {
 // PUT /api/portfolio/content
 router.put('/content', requireAdmin, async (req, res) => {
   try {
-    const { tagline, bio1, bio2, skills, available } = req.body;
+    const { tagline, bio1, bio2, skills, marqueeText, available } = req.body;
     const settings = await getSettings();
     
     if (tagline !== undefined)   settings.data.tagline   = tagline;
     if (bio1    !== undefined)   settings.data.bio1      = bio1;
     if (bio2    !== undefined)   settings.data.bio2      = bio2;
     if (skills  !== undefined)   settings.data.skills    = skills;
+    if (marqueeText !== undefined) settings.data.marqueeText = marqueeText;
     if (available !== undefined) settings.data.available = available;
     
     settings.markModified('data');

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { FiGrid, FiImage, FiPlay, FiSmartphone, FiSettings, FiLogOut } from 'react-icons/fi'
+import { FiGrid, FiImage, FiPlay, FiSmartphone, FiSettings, FiLogOut, FiUsers } from 'react-icons/fi'
 import AdminOverview from './AdminOverview'
 import AdminProjects from './AdminProjects'
+import AdminCreators from './AdminCreators'
 import './AdminDashboard.css'
 
 const NAV_ITEMS = [
@@ -12,6 +13,7 @@ const CONTENT_ITEMS = [
   { id: 'thumbnails', label: 'Thumbnails', icon: <FiImage size={18} /> },
   { id: 'videos', label: 'Videos', icon: <FiPlay size={18} /> },
   { id: 'shorts', label: 'Shorts', icon: <FiSmartphone size={18} /> },
+  { id: 'creators', label: 'Creators', icon: <FiUsers size={18} /> },
 ]
 
 const SETTING_ITEMS = [
@@ -131,6 +133,7 @@ export default function AdminDashboard({ onLogout }) {
           {tab === 'thumbnails' && <AdminProjects category="thumbnail" editId={editId} onEditClear={() => setEditId(null)} />}
           {tab === 'videos'     && <AdminProjects category="video" editId={editId} onEditClear={() => setEditId(null)} />}
           {tab === 'shorts'     && <AdminProjects category="short" editId={editId} onEditClear={() => setEditId(null)} />}
+          {tab === 'creators'   && <AdminCreators />}
           {tab === 'settings'   && <AdminOverview mode="settings" />}
         </div>
       </main>

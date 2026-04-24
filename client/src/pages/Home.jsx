@@ -211,7 +211,7 @@ export default function Home({ data }) {
   return (
     <div className="relative w-full h-full">
       <Hero data={data} />
-      <Marquee />
+      <Marquee items={data.marqueeText} />
 
       {/* ═══ SECTION 1: THUMBNAILS ═══ */}
       <section id="thumbnails" className="content-section">

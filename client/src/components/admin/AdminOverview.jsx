@@ -13,7 +13,7 @@ export default function AdminOverview({ mode = 'dashboard', onNavigate }) {
   const isSettings = mode === 'settings'
   const [data, setData] = useState(null)
   const [stats, setStats] = useState({ projects: '', clients: '', years: '' })
-  const [content, setContent] = useState({ tagline: '', bio1: '', bio2: '', skills: '' })
+  const [content, setContent] = useState({ tagline: '', bio1: '', bio2: '', skills: '', marqueeText: '' })
   const [statusMsg, setStatusMsg] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [ytStatus, setYtStatus] = useState(null)
@@ -60,7 +60,8 @@ export default function AdminOverview({ mode = 'dashboard', onNavigate }) {
                tagline: res.data.data.tagline || '',
                bio1: res.data.data.bio1 || '',
                bio2: res.data.data.bio2 || '',
-               skills: (res.data.data.skills || []).join(', ')
+               skills: (res.data.data.skills || []).join(', '),
+               marqueeText: res.data.data.marqueeText || ''
            })
        }
      } catch(e) {}
@@ -82,7 +83,8 @@ export default function AdminOverview({ mode = 'dashboard', onNavigate }) {
         tagline: content.tagline, 
         bio1: content.bio1, 
         bio2: content.bio2, 
-        skills: content.skills.split(',').map(s => s.trim()).filter(Boolean) 
+        skills: content.skills.split(',').map(s => s.trim()).filter(Boolean),
+        marqueeText: content.marqueeText 
       })
       setStatusMsg('Content updated!')
       setTimeout(() => setStatusMsg(''), 3000)

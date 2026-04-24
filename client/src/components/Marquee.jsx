@@ -5,8 +5,12 @@ const ITEMS = [
   'MOTION GRAPHICS', 'BRAND IDENTITY', 'SOCIAL MEDIA',
 ]
 
-export default function Marquee() {
-  const doubled = [...ITEMS, ...ITEMS]
+export default function Marquee({ items }) {
+  const displayItems = items 
+    ? items.split(',').map(s => s.trim()).filter(Boolean)
+    : ITEMS
+
+  const doubled = [...displayItems, ...displayItems]
   return (
     <div className="marquee-strip">
       <div className="marquee-track">
