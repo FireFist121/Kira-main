@@ -10,7 +10,15 @@ export default function Marquee({ items }) {
     ? items.split(',').map(s => s.trim()).filter(Boolean)
     : ITEMS
 
-  const doubled = [...displayItems, ...displayItems]
+  // Ensure we have enough items to fill the track and loop seamlessly
+  let list = [...displayItems]
+  if (list.length > 0) {
+    while (list.length < 10) {
+      list = [...list, ...displayItems]
+    }
+  }
+  
+  const doubled = [...list, ...list]
   return (
     <div className="marquee-strip">
       <div className="marquee-track">

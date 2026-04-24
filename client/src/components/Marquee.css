@@ -18,10 +18,12 @@
   z-index: 2;
   pointer-events: none;
 }
+
 .marquee-strip::before {
   left: 0;
   background: linear-gradient(to right, var(--bg2), transparent);
 }
+
 .marquee-strip::after {
   right: 0;
   background: linear-gradient(to left, var(--bg2), transparent);
@@ -31,10 +33,13 @@
   display: flex;
   gap: 0;
   white-space: nowrap;
-  animation: marquee 28s linear infinite;
+  animation: marquee 30s linear infinite;
   width: max-content;
 }
-.marquee-track:hover { animation-play-state: paused; }
+
+.marquee-track:hover {
+  animation-play-state: paused;
+}
 
 .marquee-item {
   display: inline-flex;
@@ -49,7 +54,10 @@
   transition: color 0.2s;
   cursor: default;
 }
-.marquee-item:hover { color: var(--muted); }
+
+.marquee-item:hover {
+  color: var(--muted);
+}
 
 .marquee-dot {
   color: var(--accent);
@@ -58,6 +66,11 @@
 }
 
 @keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
 }
