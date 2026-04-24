@@ -327,7 +327,11 @@ async function getYouTubeStatus() {
 
 function getEnrichedViews(projects) {
   return projects.map(p => {
-    const pObj = p.toObject ? p.toObject() : p;
+    const pObj = p.toObject ? p.toObject() : { ...p };
+    
+    // Maintain frontend compatibility: map _id to id
+    if (pObj._id) pObj.id = pObj._id.toString();
+
     if (pObj.type === 'thumbnail') return pObj;
     const vid = extractVideoId(pObj.link);
     if (vid && memoryCache[vid]) {
