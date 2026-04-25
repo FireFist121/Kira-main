@@ -87,8 +87,24 @@ function extractVideoId(url) {
 
 async function getYouTubeTasks() {
   try {
-    const works = await Work.find({ type: { $in: ['video', 'short', 'clip'] } }).sort({ createdAt: -1 }).lean();
+    const works = await Work.find({ type: { $in: ['video', 'short', 'clip'] } }).lean();
     const ytProjects = works.filter(w => extractVideoId(w.link));
+
+    // DYNAMIC POOL: Sort by engagement (views changed in last check)
+    // Fallback to createdAt for new items
+    ytProjects.forEach(p => {
+      const vid = extractVideoId(p.link);
+      const cache = memoryCache[vid] || {};
+      p._engagement = cache.lastDelta || 0;
+      p._lastUpdate = cache.updatedAt || p.createdAt || 0;
+    });
+
+    ytProjects.sort((a, b) => {
+      // Prioritize engagement
+      if (b._engagement !== a._engagement) return b._engagement - a._engagement;
+      // Then recency
+      return new Date(b._lastUpdate) - new Date(a._lastUpdate);
+    });
 
     const active = ytProjects.slice(0, 15);
     const archive = ytProjects.slice(15);
@@ -101,6 +117,11 @@ async function getYouTubeTasks() {
 }
 
 function getBackoffDelay() {
+  // Fail-safe Throttle: If quota > 8000, force 5-10 min refresh
+  if (quotaDailyUsage >= 8000) {
+    return activeNoChangeCount >= 5 ? 600000 : 300000;
+  }
+
   if (activeNoChangeCount >= 10) return 600000;
   if (activeNoChangeCount >= 5) return 300000;
   if (activeNoChangeCount >= 2) return 120000;
@@ -141,9 +162,9 @@ async function fetchYouTubeStats(ids, options = { force: false }) {
     await saveYoutubeStats();
   }
 
-  if (quotaDailyUsage >= 8000) {
-    console.warn('⛔ YouTube Daily Quota Limit Reached (>8000). Pausing requests.');
-    return { skipped: true, reason: 'quota_limit' };
+  if (quotaDailyUsage >= 9500) {
+    console.warn('⛔ YouTube Daily Quota CRITICAL (>9500). Stopping all requests.');
+    return { skipped: true, reason: 'quota_critical' };
   }
 
   const summary = { fetched: 0, updated: 0, skipped: false, quotaUsed: 0 };
@@ -182,11 +203,13 @@ async function fetchYouTubeStats(ids, options = { force: false }) {
         const newComments = parseInt(item.statistics?.commentCount || 0, 10);
 
         if (oldRecord.views !== newViews || oldRecord.likes !== newLikes || oldRecord.comments !== newComments) {
+          const delta = newViews - (oldRecord.views || 0);
           memoryCache[item.id] = {
             title: item.snippet?.title || oldRecord.title || 'Unknown Title',
             views: newViews,
             likes: newLikes,
             comments: newComments,
+            lastDelta: delta > 0 ? delta : (oldRecord.lastDelta || 0), // Track engagement
             updatedAt: new Date().toISOString(),
           };
           updated = true;
@@ -248,6 +271,9 @@ async function refreshActiveVideoData(force = false) {
 }
 
 async function refreshArchiveBatch() {
+  if (quotaDailyUsage >= 8000) {
+    return { skipped: true, reason: 'quota_throttle', message: 'Archive updates paused due to high quota usage (>8000)' };
+  }
   const { archive } = await getYouTubeTasks();
   const ids = archive.map(w => extractVideoId(w.link)).filter(Boolean);
   if (ids.length === 0) {
@@ -395,6 +421,8 @@ async function getYouTubeStatus() {
     dailyQuotaUsage: quotaDailyUsage,
     dailyQuotaLimit: 10000,
     throttleAt: 8000,
+    isThrottled: quotaDailyUsage >= 8000,
+    engineMode: quotaDailyUsage >= 8000 ? 'Throttled (High Usage)' : activeNoChangeCount > 0 ? 'Backoff (Low Activity)' : 'Active',
     activePoolSize: active.length,
     activePoolLimit: 15,
     refreshIntervalMs: getActiveRefreshInterval(),

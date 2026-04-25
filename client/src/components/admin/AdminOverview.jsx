@@ -174,7 +174,7 @@ export default function AdminOverview({ mode = 'dashboard', onNavigate }) {
         <h1 className="dash-page-title dash-dashboard-title">Live Stats & Refresh Control</h1>
         <div className="dash-dashboard-title-line" aria-hidden />
         <p className="dash-dashboard-sub">
-          Automatic 1-min active refresh · Daily archive rotation · Smart backoff protection.
+          Automatic 1-min active refresh · Daily archive rotation · <strong>Mode: {ytStatus?.engineMode || 'Loading...'}</strong>
         </p>
         <div className="yt-status-panel">
           <div className="yt-status-card yt-status-card--highlight">
