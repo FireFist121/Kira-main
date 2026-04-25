@@ -143,12 +143,9 @@ async function getYouTubeTasks() {
 }
 
 function getBackoffDelay() {
-  if (quotaDailyUsage >= 8000) {
-    return activeNoChangeCount >= 5 ? 600000 : 300000;
-  }
-  if (activeNoChangeCount >= 10) return 600000;
-  if (activeNoChangeCount >= 5) return 300000;
-  if (activeNoChangeCount >= 2) return 120000;
+  // No backoff — always refresh every 60s (1440 units/day = 14.4% of quota)
+  // Only throttle if quota is critically high
+  if (quotaDailyUsage >= 8000) return 300000; // 5 min if near quota limit
   return 60000;
 }
 
@@ -161,12 +158,9 @@ function shouldRunActiveRefresh() {
 }
 
 function updateActiveBackoff(updated) {
-  if (updated) {
-    activeNoChangeCount = 0;
-    nextActiveRefreshAt = Date.now() + 60000;
-    return;
-  }
-  activeNoChangeCount += 1;
+  // Always refresh every 60s regardless of whether stats changed
+  // Still track streak for display purposes only
+  activeNoChangeCount = updated ? 0 : activeNoChangeCount + 1;
   nextActiveRefreshAt = Date.now() + getBackoffDelay();
 }
 
