@@ -8,9 +8,10 @@ const connectDB = async () => {
   }
 
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    const conn = await mongoose.connect(process.env.MONGODB_URI);
     isConnected = true;
-    console.log(`🟢 MongoDB Connected: ${mongoose.connection.host}`);
+    const host = conn.connection.host || mongoose.connection.host || 'connected';
+    console.log(`🟢 MongoDB Connected: ${host}`);
     return mongoose.connection;
   } catch (error) {
     console.error(`🔴 Error: ${error.message}`);
