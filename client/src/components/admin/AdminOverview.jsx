@@ -244,16 +244,6 @@ export default function AdminOverview({ mode = 'dashboard', onNavigate }) {
                       background: getQuotaBarColor(),
                     }}
                   />
-                  {/* Throttle marker */}
-                  <div style={{
-                    position: 'absolute',
-                    left: '80%',
-                    top: 0,
-                    bottom: 0,
-                    width: '2px',
-                    background: 'rgba(255,100,0,0.6)',
-                    borderRadius: '2px',
-                  }} />
                 </div>
                 <div className="yt-status-meter">
                   <span>
