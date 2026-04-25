@@ -15,11 +15,13 @@ let serviceState = {
   lastManualRefreshAt: null,
   lastPoolRebuildAt: null,
 };
+
+// FIX 1: These are now persisted to MongoDB so they survive server restarts
 let nextActiveRefreshAt = Date.now();
 let activeNoChangeCount = 0;
 let lastResetDate = new Date().toDateString();
 let quotaDailyUsage = 0;
-let youtubeLogs = []; // In-memory buffer
+let youtubeLogs = [];
 
 /** Helper to get or create settings */
 async function getSettings(key, defaultValue = {}) {
@@ -54,7 +56,30 @@ async function saveCache() {
 async function loadState() {
   try {
     const settings = await getSettings('youtube_state', serviceState);
-    serviceState = settings.data;
+    const savedData = settings.data;
+
+    // Restore core state
+    serviceState = {
+      archiveBatchIndex: savedData.archiveBatchIndex || 0,
+      lastActiveRefreshAt: savedData.lastActiveRefreshAt || null,
+      lastArchiveRefreshAt: savedData.lastArchiveRefreshAt || null,
+      lastManualRefreshAt: savedData.lastManualRefreshAt || null,
+      lastPoolRebuildAt: savedData.lastPoolRebuildAt || null,
+    };
+
+    // FIX 1: Restore backoff state so it survives restarts
+    activeNoChangeCount = savedData.activeNoChangeCount || 0;
+    const savedNext = savedData.nextActiveRefreshAt;
+    if (savedNext && !isNaN(new Date(savedNext).getTime())) {
+      nextActiveRefreshAt = new Date(savedNext).getTime();
+      // If the saved next time is in the past, set to now so we don't wait forever
+      if (nextActiveRefreshAt < Date.now()) {
+        nextActiveRefreshAt = Date.now();
+      }
+    } else {
+      nextActiveRefreshAt = Date.now();
+    }
+
     console.log('🟢 YouTube state loaded from MongoDB');
   } catch (e) {
     console.error('Error loading YouTube state from MongoDB', e);
@@ -64,7 +89,12 @@ async function loadState() {
 async function saveState() {
   try {
     const settings = await getSettings('youtube_state', serviceState);
-    settings.data = serviceState;
+    // FIX 1: Persist backoff state along with service state
+    settings.data = {
+      ...serviceState,
+      activeNoChangeCount,
+      nextActiveRefreshAt: new Date(nextActiveRefreshAt).toISOString(),
+    };
     settings.markModified('data');
     await settings.save();
   } catch (e) {
@@ -90,8 +120,6 @@ async function getYouTubeTasks() {
     const works = await Work.find({ type: { $in: ['video', 'short', 'clip'] } }).lean();
     const ytProjects = works.filter(w => extractVideoId(w.link));
 
-    // DYNAMIC POOL: Sort by engagement (views changed in last check)
-    // Fallback to createdAt for new items
     ytProjects.forEach(p => {
       const vid = extractVideoId(p.link);
       const cache = memoryCache[vid] || {};
@@ -100,9 +128,7 @@ async function getYouTubeTasks() {
     });
 
     ytProjects.sort((a, b) => {
-      // Prioritize engagement
       if (b._engagement !== a._engagement) return b._engagement - a._engagement;
-      // Then recency
       return new Date(b._lastUpdate) - new Date(a._lastUpdate);
     });
 
@@ -117,11 +143,9 @@ async function getYouTubeTasks() {
 }
 
 function getBackoffDelay() {
-  // Fail-safe Throttle: If quota > 8000, force 5-10 min refresh
   if (quotaDailyUsage >= 8000) {
     return activeNoChangeCount >= 5 ? 600000 : 300000;
   }
-
   if (activeNoChangeCount >= 10) return 600000;
   if (activeNoChangeCount >= 5) return 300000;
   if (activeNoChangeCount >= 2) return 120000;
@@ -142,7 +166,6 @@ function updateActiveBackoff(updated) {
     nextActiveRefreshAt = Date.now() + 60000;
     return;
   }
-
   activeNoChangeCount += 1;
   nextActiveRefreshAt = Date.now() + getBackoffDelay();
 }
@@ -209,7 +232,7 @@ async function fetchYouTubeStats(ids, options = { force: false }) {
             views: newViews,
             likes: newLikes,
             comments: newComments,
-            lastDelta: delta > 0 ? delta : (oldRecord.lastDelta || 0), // Track engagement
+            lastDelta: delta > 0 ? delta : (oldRecord.lastDelta || 0),
             updatedAt: new Date().toISOString(),
           };
           updated = true;
@@ -241,22 +264,36 @@ async function fetchYouTubeStats(ids, options = { force: false }) {
   }
 
   summary.dailyQuota = quotaDailyUsage;
-  await saveYoutubeStats(); // Persist usage after chunks
+  await saveYoutubeStats();
   return summary;
 }
 
 async function refreshActiveVideoData(force = false) {
   const { active } = await getYouTubeTasks();
   const ids = active.map(w => extractVideoId(w.link)).filter(Boolean);
+
+  // FIX 2: Always include nextRunAt even when no videos
   if (ids.length === 0) {
-    return { fetched: 0, updated: 0, skipped: false, active: 0, refreshIntervalMs: getActiveRefreshInterval() };
+    return {
+      fetched: 0,
+      updated: 0,
+      skipped: false,
+      active: 0,
+      refreshIntervalMs: getActiveRefreshInterval(),
+      nextRunAt: new Date(nextActiveRefreshAt).toISOString(),
+    };
   }
 
   serviceState.lastPoolRebuildAt = new Date().toISOString();
   await saveState();
 
   if (!force && !shouldRunActiveRefresh()) {
-    return { skipped: true, reason: 'backoff', nextRunAt: new Date(nextActiveRefreshAt).toISOString(), refreshIntervalMs: getActiveRefreshInterval() };
+    return {
+      skipped: true,
+      reason: 'backoff',
+      nextRunAt: new Date(nextActiveRefreshAt).toISOString(),
+      refreshIntervalMs: getActiveRefreshInterval(),
+    };
   }
 
   const result = await fetchYouTubeStats(ids, { force });
@@ -267,7 +304,12 @@ async function refreshActiveVideoData(force = false) {
   }
   await saveState();
 
-  return { ...result, active: ids.length, nextRunAt: new Date(nextActiveRefreshAt).toISOString(), refreshIntervalMs: getActiveRefreshInterval() };
+  return {
+    ...result,
+    active: ids.length,
+    nextRunAt: new Date(nextActiveRefreshAt).toISOString(),
+    refreshIntervalMs: getActiveRefreshInterval(),
+  };
 }
 
 async function refreshArchiveBatch() {
@@ -296,18 +338,13 @@ async function refreshArchiveBatch() {
   return { ...result, archiveBatchIndex: serviceState.archiveBatchIndex, batchSize: batchIds.length, totalBatches };
 }
 
+// FIX 3: refreshYouTubeData now uses refreshArchiveBatch() instead of fetching all archive directly
 async function refreshYouTubeData({ includeArchive = true, force = false } = {}) {
   const activeResult = await refreshActiveVideoData(force);
   let archiveResult = null;
 
   if (includeArchive) {
-    const tasks = await getYouTubeTasks();
-    archiveResult = await fetchYouTubeStats(
-      tasks.archive
-        .map(w => extractVideoId(w.link))
-        .filter(Boolean),
-      { force }
-    );
+    archiveResult = await refreshArchiveBatch();
   }
 
   return {
@@ -324,8 +361,7 @@ async function loadYoutubeStats() {
     const stats = await getSettings('youtube_stats', { quotaDailyUsage: 0, lastResetDate: new Date().toDateString() });
     quotaDailyUsage = stats.data.quotaDailyUsage || 0;
     lastResetDate = stats.data.lastResetDate || new Date().toDateString();
-    
-    // Check for daily reset immediately on load
+
     const today = new Date().toDateString();
     if (today !== lastResetDate) {
       quotaDailyUsage = 0;
@@ -357,10 +393,9 @@ async function addYoutubeLog(type, message, details = {}) {
       timestamp: new Date().toISOString(),
       ...details
     };
-    youtubeLogs.unshift(logEntry); // Add to start
-    if (youtubeLogs.length > 50) youtubeLogs = youtubeLogs.slice(0, 50); // Keep last 50
-    
-    // Emit via Socket.IO if available
+    youtubeLogs.unshift(logEntry);
+    if (youtubeLogs.length > 50) youtubeLogs = youtubeLogs.slice(0, 50);
+
     if (global.io) {
       global.io.emit('youtube_log', logEntry);
       global.io.emit('youtube_status_update', await getYouTubeStatus());
@@ -379,6 +414,7 @@ async function loadYoutubeLogs() {
   try {
     const settings = await getSettings('youtube_logs', []);
     youtubeLogs = settings.data || [];
+    console.log('🟢 YouTube logs loaded from MongoDB');
   } catch (e) {
     console.error('Error loading YouTube logs:', e);
   }
@@ -441,10 +477,7 @@ async function getYouTubeStatus() {
 function getEnrichedViews(projects) {
   return projects.map(p => {
     const pObj = p.toObject ? p.toObject() : { ...p };
-    
-    // Maintain frontend compatibility: map _id to id
     if (pObj._id) pObj.id = pObj._id.toString();
-
     if (pObj.type === 'thumbnail') return pObj;
     const vid = extractVideoId(pObj.link);
     if (vid && memoryCache[vid]) {
