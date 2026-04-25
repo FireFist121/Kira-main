@@ -44,10 +44,11 @@ async function loadCache() {
 
 async function saveCache() {
   try {
-    const settings = await getSettings('youtube_cache', {});
-    settings.data = memoryCache;
-    settings.markModified('data');
-    await settings.save();
+    await Settings.findOneAndUpdate(
+      { key: 'youtube_cache' },
+      { $set: { data: memoryCache } },
+      { upsert: true, new: true }
+    );
   } catch (e) {
     console.error('Error saving YouTube cache to MongoDB', e);
   }
@@ -88,15 +89,15 @@ async function loadState() {
 
 async function saveState() {
   try {
-    const settings = await getSettings('youtube_state', serviceState);
-    // FIX 1: Persist backoff state along with service state
-    settings.data = {
-      ...serviceState,
-      activeNoChangeCount,
-      nextActiveRefreshAt: new Date(nextActiveRefreshAt).toISOString(),
-    };
-    settings.markModified('data');
-    await settings.save();
+    await Settings.findOneAndUpdate(
+      { key: 'youtube_state' },
+      { $set: { data: {
+        ...serviceState,
+        activeNoChangeCount,
+        nextActiveRefreshAt: new Date(nextActiveRefreshAt).toISOString(),
+      }}},
+      { upsert: true, new: true }
+    );
   } catch (e) {
     console.error('Error saving YouTube state to MongoDB', e);
   }
@@ -370,10 +371,11 @@ async function loadYoutubeStats() {
 
 async function saveYoutubeStats() {
   try {
-    const stats = await getSettings('youtube_stats', {});
-    stats.data = { quotaDailyUsage, lastResetDate };
-    stats.markModified('data');
-    await stats.save();
+    await Settings.findOneAndUpdate(
+      { key: 'youtube_stats' },
+      { $set: { data: { quotaDailyUsage, lastResetDate } } },
+      { upsert: true, new: true }
+    );
   } catch (e) {
     console.error('Error saving YouTube stats to MongoDB', e);
   }
@@ -395,10 +397,11 @@ async function addYoutubeLog(type, message, details = {}) {
       global.io.emit('youtube_status_update', await getYouTubeStatus());
     }
 
-    const settings = await getSettings('youtube_logs', []);
-    settings.data = youtubeLogs;
-    settings.markModified('data');
-    await settings.save();
+    await Settings.findOneAndUpdate(
+      { key: 'youtube_logs' },
+      { $set: { data: youtubeLogs } },
+      { upsert: true, new: true }
+    );
   } catch (e) {
     console.error('Error saving YouTube log:', e);
   }
