@@ -1,18 +1,17 @@
 const mongoose = require('mongoose');
 
-let cachedConnection = null;
+let isConnected = false;
 
 const connectDB = async () => {
-  if (cachedConnection) {
-    console.log('🟢 Using cached MongoDB connection');
-    return cachedConnection;
+  if (isConnected) {
+    return mongoose.connection;
   }
 
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
-    cachedConnection = conn;
-    console.log(`🟢 MongoDB Connected: ${mongoose.connection.host}`)
-    return conn;
+    await mongoose.connect(process.env.MONGODB_URI);
+    isConnected = true;
+    console.log(`🟢 MongoDB Connected: ${mongoose.connection.host}`);
+    return mongoose.connection;
   } catch (error) {
     console.error(`🔴 Error: ${error.message}`);
     console.warn(`⚠️ Running without MongoDB. Caching features may be disabled.`);
