@@ -8,10 +8,14 @@ const connectDB = async () => {
   }
 
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
-    isConnected = true;
-    const host = conn.connection.host || mongoose.connection.host || 'connected';
-    console.log(`🟢 MongoDB Connected: ${host}`);
+    await mongoose.connect(process.env.MONGODB_URI);
+    
+    // Only log and set flag if not already connected (prevents duplicate logs)
+    if (!isConnected) {
+      isConnected = true;
+      console.log(`🟢 MongoDB Connected: ${mongoose.connection.host}`);
+    }
+    
     return mongoose.connection;
   } catch (error) {
     console.error(`🔴 Error: ${error.message}`);
