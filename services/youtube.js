@@ -47,7 +47,7 @@ async function saveCache() {
     await Settings.findOneAndUpdate(
       { key: 'youtube_cache' },
       { $set: { data: memoryCache } },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   } catch (e) {
     console.error('Error saving YouTube cache to MongoDB', e);
@@ -96,7 +96,7 @@ async function saveState() {
         activeNoChangeCount,
         nextActiveRefreshAt: new Date(nextActiveRefreshAt).toISOString(),
       }}},
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   } catch (e) {
     console.error('Error saving YouTube state to MongoDB', e);
@@ -374,7 +374,7 @@ async function saveYoutubeStats() {
     await Settings.findOneAndUpdate(
       { key: 'youtube_stats' },
       { $set: { data: { quotaDailyUsage, lastResetDate } } },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   } catch (e) {
     console.error('Error saving YouTube stats to MongoDB', e);
@@ -400,7 +400,7 @@ async function addYoutubeLog(type, message, details = {}) {
     await Settings.findOneAndUpdate(
       { key: 'youtube_logs' },
       { $set: { data: youtubeLogs } },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   } catch (e) {
     console.error('Error saving YouTube log:', e);
