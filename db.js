@@ -1,26 +1,31 @@
 const mongoose = require('mongoose');
 
-let isConnected = false;
+let connectionPromise = null;
 
 const connectDB = async () => {
-  if (isConnected) {
+  // If already connected, return immediately
+  if (mongoose.connection.readyState === 1) {
     return mongoose.connection;
   }
 
-  try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    
-    // Only log and set flag if not already connected (prevents duplicate logs)
-    if (!isConnected) {
-      isConnected = true;
-      console.log(`🟢 MongoDB Connected: ${mongoose.connection.host}`);
-    }
-    
-    return mongoose.connection;
-  } catch (error) {
-    console.error(`🔴 Error: ${error.message}`);
-    console.warn(`⚠️ Running without MongoDB. Caching features may be disabled.`);
+  // If a connection is in progress, wait for it
+  if (connectionPromise) {
+    return connectionPromise;
   }
+
+  // Start a new connection
+  connectionPromise = mongoose.connect(process.env.MONGODB_URI)
+    .then(() => {
+      console.log(`🟢 MongoDB Connected: ${mongoose.connection.host}`);
+      return mongoose.connection;
+    })
+    .catch((error) => {
+      connectionPromise = null; // Reset so retry is possible
+      console.error(`🔴 MongoDB Error: ${error.message}`);
+      console.warn(`⚠️ Running without MongoDB. Caching features may be disabled.`);
+    });
+
+  return connectionPromise;
 };
 
 module.exports = connectDB;
