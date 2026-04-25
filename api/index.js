@@ -5,7 +5,7 @@ const connectDB = require('../db');
 
 const app = express();
 
-// Ensure DB is connected on each request
+// Ensure DB is connected on each request (silent - server.js handles the log)
 app.use(async (req, res, next) => {
   await connectDB();
   next();
